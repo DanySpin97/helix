@@ -11,8 +11,11 @@ use application::Application;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use clap::Clap;
 
-fn setup_logging(verbosity: u64) -> Result<()> {
+use anyhow::Error;
+
+fn setup_logging(verbosity: u32) -> Result<()> {
     let mut base_config = fern::Dispatch::new();
 
     // Let's say we depend on something which whose "info" level messages are too
@@ -47,53 +50,19 @@ fn setup_logging(verbosity: u64) -> Result<()> {
     Ok(())
 }
 
-pub struct Args {
+#[derive(Clap)]
+#[clap(version = env!("CARGO_PKG_VERSION"), author = env!("CARGO_PKG_AUTHORS"))]
+struct Opts {
+    #[clap(short, long, parse(from_occurrences))]
+    verbose: u32,
+    #[clap(short = 'V', long)]
+    version: bool,
     files: Vec<PathBuf>,
 }
 
 fn main() -> Result<()> {
-    let help = format!(
-        "\
-{} {}
-{}
-{}
-
-USAGE:
-    hx [FLAGS] [files]...
-
-ARGS:
-    <files>...    Sets the input file to use
-
-FLAGS:
-    -h, --help       Prints help information
-    -v               Increases logging verbosity each use for up to 3 times
-    -V, --version    Prints version information
-",
-        env!("CARGO_PKG_NAME"),
-        env!("CARGO_PKG_VERSION"),
-        env!("CARGO_PKG_AUTHORS"),
-        env!("CARGO_PKG_DESCRIPTION"),
-    );
-
-    let mut pargs = pico_args::Arguments::from_env();
-
-    // Help has a higher priority and should be handled separately.
-    if pargs.contains(["-h", "--help"]) {
-        print!("{}", help);
-        std::process::exit(0);
-    }
-
-    let mut verbosity: u64 = 0;
-
-    if pargs.contains("-v") {
-        verbosity = 1;
-    }
-
-    setup_logging(verbosity).context("failed to initialize logging")?;
-
-    let args = Args {
-        files: pargs.finish().into_iter().map(|arg| arg.into()).collect(),
-    };
+    let opts: Opts = Opts::parse();
+    setup_logging(opts.verbose).context("failed to initialize logging.")?;
 
     // initialize language registry
     use helix_core::config_dir;
@@ -111,7 +80,7 @@ FLAGS:
     let runtime = tokio::runtime::Runtime::new().context("unable to start tokio runtime")?;
 
     // TODO: use the thread local executor to spawn the application task separately from the work pool
-    let mut app = Application::new(args).context("unable to create new appliction")?;
+    let mut app = Application::new(opts.files).context("unable to create new appliction")?;
     runtime.block_on(async move {
         app.run().await;
     });

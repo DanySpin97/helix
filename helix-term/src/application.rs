@@ -1,6 +1,6 @@
 use helix_view::{document::Mode, Document, Editor, Theme, View};
 
-use crate::{compositor::Compositor, ui, Args};
+use crate::{compositor::Compositor, ui};
 
 use log::{error, info};
 
@@ -39,14 +39,14 @@ pub struct Application {
 }
 
 impl Application {
-    pub fn new(mut args: Args) -> Result<Self, Error> {
+    pub fn new(mut files: Vec<PathBuf>) -> Result<Self, Error> {
         use helix_view::editor::Action;
         let mut compositor = Compositor::new()?;
         let size = compositor.size();
         let mut editor = Editor::new(size);
 
-        if !args.files.is_empty() {
-            for file in args.files {
+        if !files.is_empty() {
+            for file in files {
                 editor.open(file, Action::VerticalSplit)?;
             }
         } else {
